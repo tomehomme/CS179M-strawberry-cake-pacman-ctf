@@ -1,4 +1,4 @@
-# pacman-ctf
+# Team strawberry-cake pacman-ctf
 ## Python3 version of UC Berkeley's CS 188 Pacman Capture the Flag project
 
 ### Original Licensing Agreement (which also extends to this version)
