@@ -13,16 +13,18 @@
 
 
 from captureAgents import CaptureAgent
-import random, time, util
+import distanceCalculator
+import random, time, util, sys
 from game import Directions
 import game
+from util import nearestPoint
 
 #################
 # Team creation #
 #################
 
 def createTeam(firstIndex, secondIndex, isRed,
-               first = 'DummyAgent', second = 'DummyAgent'):
+               first = 'DummyAgent', second = 'DefensiveReflexAgent'):
   """
   This function should return a list of two agents that will form the
   team, initialized using firstIndex and secondIndex as their agent
@@ -44,6 +46,80 @@ def createTeam(firstIndex, secondIndex, isRed,
 ##########
 # Agents #
 ##########
+
+# copied from baselineTeam.py
+class ReflexCaptureAgent(CaptureAgent):
+  """
+  A base class for reflex agents that chooses score-maximizing actions
+  """
+ 
+  def registerInitialState(self, gameState):
+    self.start = gameState.getAgentPosition(self.index)
+    CaptureAgent.registerInitialState(self, gameState)
+
+  def chooseAction(self, gameState):
+    """
+    Picks among the actions with the highest Q(s,a).
+    """
+    actions = gameState.getLegalActions(self.index)
+    # You can profile your evaluation time by uncommenting these lines
+    # start = time.time()
+    values = [self.evaluate(gameState, a) for a in actions]
+    # print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
+
+    maxValue = max(values)
+    bestActions = [a for a, v in zip(actions, values) if v == maxValue]
+
+    foodLeft = len(self.getFood(gameState).asList())
+
+    if foodLeft <= 2:
+      bestDist = 9999
+      for action in actions:
+        successor = self.getSuccessor(gameState, action)
+        pos2 = successor.getAgentPosition(self.index)
+        dist = self.getMazeDistance(self.start,pos2)
+        if dist < bestDist:
+          bestAction = action
+          bestDist = dist
+      return bestAction
+
+    return random.choice(bestActions)
+
+  def getSuccessor(self, gameState, action):
+    """
+    Finds the next successor which is a grid position (location tuple).
+    """
+    successor = gameState.generateSuccessor(self.index, action)
+    pos = successor.getAgentState(self.index).getPosition()
+    if pos != nearestPoint(pos):
+      # Only half a grid position was covered
+      return successor.generateSuccessor(self.index, action)
+    else:
+      return successor
+
+  def evaluate(self, gameState, action):
+    """
+    Computes a linear combination of features and feature weights
+    """
+    features = self.getFeatures(gameState, action)
+    weights = self.getWeights(gameState, action)
+    return features * weights
+
+  def getFeatures(self, gameState, action):
+    """
+    Returns a counter of features for the state
+    """
+    features = util.Counter()
+    successor = self.getSuccessor(gameState, action)
+    features['successorScore'] = self.getScore(successor)
+    return features
+
+  def getWeights(self, gameState, action):
+    """
+    Normally, weights do not depend on the gamestate.  They can be either
+    a counter or a dictionary.
+    """
+    return {'successorScore': 1.0}
 
 class DummyAgent(CaptureAgent):
   """
@@ -90,3 +166,101 @@ class DummyAgent(CaptureAgent):
 
     return random.choice(actions)
 
+# copied from baselineTeam.py
+class DefensiveReflexAgent(ReflexCaptureAgent):
+  """
+  Ghost Agent that keeps our side PacMan free.
+  Will try to eat opponent's PacMan by finding and going towards it.
+  Will run away for the duration that it is scared/eatable.
+  """
+
+  def registerInitialState(self, gameState):
+    self.start = gameState.getAgentPosition(self.index)
+    CaptureAgent.registerInitialState(self, gameState)
+
+    # member variables
+    self.numCapsules = len(self.getCapsulesYouAreDefending(gameState)) # saves how many capsules are on our side left
+    self.scared = 0 # timer for how long to be scared for
+
+  def getFeatures(self, gameState, action):
+    features = util.Counter()
+    successor = self.getSuccessor(gameState, action)
+
+    myState = successor.getAgentState(self.index)
+    myPos = myState.getPosition()
+    # Computes whether we're on defense (1) or offense (0)
+    features['onDefense'] = 1
+    if myState.isPacman: features['onDefense'] = 0
+
+    # Computes distance to invaders we can see
+    enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
+    invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
+    features['numInvaders'] = len(invaders)
+    if len(invaders) > 0:
+      dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
+      features['invaderDistance'] = min(dists)
+
+    if action == Directions.STOP: features['stop'] = 1
+    rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
+    if action == rev: features['reverse'] = 1
+
+    return features
+
+  def chooseAction(self,gameState):
+    actions = gameState.getLegalActions(self.index)
+    # You can profile your evaluation time by uncommenting these lines
+    # start = time.time()
+    values = [self.evaluate(gameState, a) for a in actions]
+    # print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
+    maxValue = max(values)
+    bestActions = [a for a, v in zip(actions, values) if v == maxValue]
+
+    foodLeft = len(self.getFood(gameState).asList())
+
+    if foodLeft <= 2:
+      bestDist = 9999
+      for action in actions:
+        successor = self.getSuccessor(gameState, action)
+        pos2 = successor.getAgentPosition(self.index)
+        dist = self.getMazeDistance(self.start,pos2)
+        if dist < bestDist:
+          bestAction = action
+          bestDist = dist
+      
+      return bestAction
+    return random.choice(bestActions)
+    
+  def getWeights(self, gameState, action):
+    # TODO: return different weights depending on state of the ghost agent
+    if self.isScared(gameState):
+      return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10, 'stop': -100, 'reverse': -2}
+    return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10, 'stop': -100, 'reverse': -2}
+
+  def ourCapsuleEaten(self,gameState):
+    """
+    Helper function to see if a capsule on our side was eaten
+    """
+    # check if a capsule on our side was eaten
+    boardCapsules = len(self.getCapsulesYouAreDefending(gameState))
+    if (self.numCapsules > boardCapsules):
+      print("ate capsule")
+      self.numCapsules-=1
+      return True
+    return False
+
+  def isScared(self,gameState):
+    """
+    Checks to see if our ghost is scared. Has a 40 move countdown to keep track of scared state
+    """
+    if self.ourCapsuleEaten(gameState):
+      # If Pacman eats a power capsule, agents on the opposing team become "scared" for the next 40 moves
+      # or until they are eaten and respawn
+      self.scared = 40
+    elif self.scared > 0:
+      # reduce the timer for being scared by 1
+      self.scared -= 1
+      return True
+    return False
+
+
+  
