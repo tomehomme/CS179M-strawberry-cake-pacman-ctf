@@ -18,7 +18,7 @@ import random, time, util, sys
 from game import Directions
 import game
 from util import nearestPoint
-
+import math
 #################
 # Team creation #
 #################
@@ -52,7 +52,7 @@ class ReflexCaptureAgent(CaptureAgent):
   """
   A base class for reflex agents that chooses score-maximizing actions
   """
- 
+  
   def registerInitialState(self, gameState):
     self.start = gameState.getAgentPosition(self.index)
     CaptureAgent.registerInitialState(self, gameState)
@@ -187,6 +187,8 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     self.numCapsules = len(self.getCapsulesYouAreDefending(gameState)) # saves how many capsules are on our side left
     self.scared = 0 # timer for how long to be scared for
     self.invaderDistance = [] # list of how close the invaders are
+    # Calculate where the middle of the board is in the beginning
+    self.middleOfBoard = tuple(map(lambda i,j: math.floor((i-j)/2), gameState.getInitialAgentPosition(1), gameState.getInitialAgentPosition(0)))
 
     
   def getFeatures(self, gameState, action):
@@ -204,10 +206,10 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     numEnemies = len([a for a in enemies if a.isPacman])
     invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
     if invaders and numEnemies:
-      # store the most recent distance of the invader
+      # store the most recent distance of the invader(s)
       self.invaderDistance = invaders
     elif self.invaderDistance and numEnemies:
-      # use the most recent distance of the invader
+      # use the most recent distance of the invader(s)
       invaders = self.invaderDistance
     else:
       # if there are no more enemies then head towards the center of the board
@@ -226,7 +228,8 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
   def evaluate(self, gameState, action):
       """
-      Adds up all features and weights
+      Evaluate actions based on the game state and state of ghost.
+      Depending on the state of the ghost, will evaluate the actions differently.
       """
       features = self.getFeatures(gameState, action)
       weights = self.getWeights(gameState, action)
@@ -234,15 +237,17 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
   def chooseAction(self,gameState):
     actions = gameState.getLegalActions(self.index)
-    # features = [self.getFeatures(gameState,action) for action in actions]
     # You can profile your evaluation time by uncommenting these lines
     # start = time.time()
     values = [self.evaluate(gameState, a) for a in actions]
     # print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
+    if (self.isScared(gameState)):
+      #reduce timer for being scared
+      self.scared -= 1
     maxValue = max(values)
     bestActions = [a for a, v in zip(actions, values) if v == maxValue]
-
-    foodLeft = len(self.getFood(gameState).asList())
+    
+    foodLeft = len(self.getFoodYouAreDefending(gameState).asList())
 
     if foodLeft <= 2:
       bestDist = 9999
@@ -257,10 +262,10 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     return random.choice(bestActions)
     
   def getWeights(self, gameState, action):
-    # TODO: return different weights depending on state of the ghost agent
     if self.isScared(gameState):
-      return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': 10, 'stop': -100, 'reverse': -2}
-    return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10, 'stop': -100, 'reverse': -2}
+      # When we are scared, we don't want to try to eat pacman right now, but don't want to be too far
+      return {'numInvaders': 1000, 'onDefense': 100, 'invaderDistance': 500,'stop': -100,'reverse': -2}
+    return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10,'stop': -100,'reverse': -2}
 
   def ourCapsuleEaten(self,gameState):
     """
@@ -278,21 +283,26 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     """
     Checks to see if our ghost is scared. Has a 40 move countdown to keep track of scared state
     """
+    previousState = self.getPreviousObservation()
+    if previousState:
+      # This is to check if ghost has been eaten, since there seems to be no function to see if an agent was eaten
+      if self.getMazeDistance(gameState.getAgentState(self.index).getPosition(),previousState.getAgentState(self.index).getPosition()) > 1:
+        self.scared = 0
+        return False
     if self.ourCapsuleEaten(gameState):
       # If Pacman eats a power capsule, agents on the opposing team become "scared" for the next 40 moves
       # or until they are eaten and respawn
       self.scared = 40
+      return True
     elif self.scared > 0:
-      # reduce the timer for being scared by 1
-      self.scared -= 1
       return True
     return False
 
 
 
-###############
+################
 # Pacman Agent #
-###############
+################
 class OffensiveReflexAgent(ReflexCaptureAgent):
   """
   A reflex agent that seeks food. This is an agent
