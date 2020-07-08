@@ -185,13 +185,16 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
     # member variables
     self.numCapsules = len(self.getCapsulesYouAreDefending(gameState)) # saves how many capsules are on our side left
-    self.scared = 0 # timer for how long to be scared for
-    self.invaderDistance = [] # list of how close the invaders are
-    # Calculate where the middle of the board is in the beginning
+    self.scared = 0 # timer for how much longer to be scared for
+    self.invaderDistance = [] # list of the most recent and exact coordinates of invaders
     self.middleOfBoard = tuple(map(lambda i,j: math.floor((i-j)/2), gameState.getInitialAgentPosition(1), gameState.getInitialAgentPosition(0)))
+    self.target = 0 # used if there is an enemy on the map whose exact position we do not know, but has eaten food recently.
 
     
   def getFeatures(self, gameState, action):
+    """
+    Gets features of the gameState after the arg action has been made
+    """
     features = util.Counter()
     successor = self.getSuccessor(gameState, action)
 
@@ -201,29 +204,41 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     features['onDefense'] = 1
     if myState.isPacman: features['onDefense'] = 0
 
-    # Computes distance to invaders we can see
+    # Computes distance to invaders we can see (within 5 distance)
     enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
     numEnemies = len([a for a in enemies if a.isPacman])
     invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
+    isStuck = self.isStuck(gameState,action)
     if invaders and numEnemies:
       # store the most recent distance of the invader(s)
       self.invaderDistance = invaders
-    elif self.invaderDistance and numEnemies:
+    elif self.invaderDistance and numEnemies and not isStuck:
       # use the most recent distance of the invader(s)
       invaders = self.invaderDistance
+    elif isStuck and numEnemies:
+      eatenFood = self.guessPacManPosition(gameState,action)
+      if eatenFood:
+        self.target = eatenFood
+        self.invaderDistance = []
     else:
-      # if there are no more enemies then head towards the center of the board
-      # and use noisy distance to try to track down enemy
       invaders = []
+      self.invaderDistance = []
+      self.target = 0
+
+
     features['numInvaders'] = len(invaders)
     if len(invaders) > 0:
       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
       features['invaderDistance'] = min(dists)
+    elif numEnemies and self.target:
+      features['invaderDistance'] = self.getMazeDistance(myPos,self.target)
 
     if action == Directions.STOP: features['stop'] = 1
     rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
     if action == rev: features['reverse'] = 1
-
+    # to prevent ghost from going back to the start position
+    if self.red and myPos[0] == self.start[0]: features['beginning'] = 1
+    elif not self.red and myPos[0] == self.start[0]: features['beginning'] = 1
     return features
 
   def evaluate(self, gameState, action):
@@ -233,17 +248,22 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
       """
       features = self.getFeatures(gameState, action)
       weights = self.getWeights(gameState, action)
-      return features * weights
+      return features*weights
 
   def chooseAction(self,gameState):
+    """
+    Picks on an action that gives the highest evaluation.
+    """
     actions = gameState.getLegalActions(self.index)
     # You can profile your evaluation time by uncommenting these lines
     # start = time.time()
     values = [self.evaluate(gameState, a) for a in actions]
     # print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
+
     if (self.isScared(gameState)):
       #reduce timer for being scared
       self.scared -= 1
+    
     maxValue = max(values)
     bestActions = [a for a, v in zip(actions, values) if v == maxValue]
     
@@ -261,11 +281,43 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
       return bestAction
     return random.choice(bestActions)
     
+  def isStuck(self,gameState,action):
+    """
+    Checks to see if ghost gets stuck while trying to chase pacman
+    """
+    if len(self.observationHistory)>6:
+      # if we do not move an average of 2 distance over 6 moves, then assume we are stuck
+      oldpos3 = self.observationHistory[-3].getAgentPosition(self.index) # get the 3rd to last move
+      oldpos6 = self.observationHistory[-6].getAgentPosition(self.index) # get the 6th to last move
+      currPos = gameState.getAgentPosition(self.index)
+      dist = self.getMazeDistance(currPos,oldpos3)
+      dist += self.getMazeDistance(oldpos3,oldpos6)
+      return dist/2 <= 2 # calculate the average distance and see if we moved more than 2
+    return False
+    
+  def guessPacManPosition(self,gameState,action):
+    """
+    Ghost Agent will try to guess where PamMan is based on the food that are missing from the board by comparing board states
+    """
+    foodPositions = self.getFoodYouAreDefending(gameState).asList()
+    passedGameState = self.getPreviousObservation()
+    if passedGameState:
+      OldFood = self.getFoodYouAreDefending(passedGameState).asList()
+      # find food position that was eaten 
+      foodEaten = [i for i in OldFood if i not in foodPositions]
+      if foodEaten:
+        return random.choice(foodEaten)
+    return 0
+
   def getWeights(self, gameState, action):
+    """
+    Weights of each feature. In a normal ghost state, we will try to penalize the action that does not eat PacMan and increases distance to PacMan.
+    We will also penalize the action that makes the ghost go back to its original starting position heavily.
+    """
     if self.isScared(gameState):
       # When we are scared, we don't want to try to eat pacman right now, but don't want to be too far
-      return {'numInvaders': 1000, 'onDefense': 100, 'invaderDistance': 500,'stop': -100,'reverse': -2}
-    return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10,'stop': -100,'reverse': -2}
+      return {'numInvaders': 1000, 'onDefense': 100, 'invaderDistance': 0,'stop': -2,'reverse': -2, 'beginning': -400}
+    return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10,'stop': -2,'reverse': -2, 'beginning': -400}
 
   def ourCapsuleEaten(self,gameState):
     """
@@ -283,18 +335,20 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     """
     Checks to see if our ghost is scared. Has a 40 move countdown to keep track of scared state
     """
-    previousState = self.getPreviousObservation()
-    if previousState:
+    if self.scared:
+      previousState = self.getPreviousObservation()
       # This is to check if ghost has been eaten, since there seems to be no function to see if an agent was eaten
-      if self.getMazeDistance(gameState.getAgentState(self.index).getPosition(),previousState.getAgentState(self.index).getPosition()) > 1:
+      # Check if the Ghost agent teleported back to start by comparing it to its previous position
+      if self.getMazeDistance(gameState.getAgentState(self.index).getPosition(), previousState.getAgentState(self.index).getPosition()) > 1:
+        print("eaten")
         self.scared = 0
         return False
+      else:
+        return True
     if self.ourCapsuleEaten(gameState):
       # If Pacman eats a power capsule, agents on the opposing team become "scared" for the next 40 moves
       # or until they are eaten and respawn
       self.scared = 40
-      return True
-    elif self.scared > 0:
       return True
     return False
 
