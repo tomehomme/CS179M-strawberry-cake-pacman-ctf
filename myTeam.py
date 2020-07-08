@@ -326,7 +326,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     # check if a capsule on our side was eaten
     boardCapsules = len(self.getCapsulesYouAreDefending(gameState))
     if (self.numCapsules > boardCapsules):
-      print("ate capsule")
+      print("enemy pacman ate capsule")
       self.numCapsules-=1
       return True
     return False
@@ -363,6 +363,12 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
   we give you to get an idea of what an offensive agent might look like,
   but it is by no means the best or only way to build an offensive agent.
   """
+  def registerInitialState(self, gameState):
+    self.start = gameState.getAgentPosition(self.index)
+    CaptureAgent.registerInitialState(self, gameState)
+    self.scaredGhostTimers = [0,0]
+
+
   def getFeatures(self, gameState, action):
     features = util.Counter()
     successor = self.getSuccessor(gameState, action)
@@ -377,5 +383,81 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
       features['distanceToFood'] = minDistance
     return features
 
-  def getWeights(self, gameState, action):
-    return {'successorScore': 100, 'distanceToFood': -1}
+  def isCapsuleEaten(self, gameState):
+    """
+    Checks if a capsule was eaten by our team pacman. If it was eaten, then this function also
+    sets the enemy ghosts scared timer to 40
+    """
+    capsule = self.getCapsules(gameState)
+    previousState =self.getPreviousObservation() # get the previous observation
+    if previousState:
+      previousCapsules = self.getCapsules(previousState)
+      if len(capsule) != len(previousCapsules):
+        self.scaredGhostTimers = [40,40] # both ghost's scared timers to 40 moves
+        print("our pacman ate capsule")
+        return True
+    else:
+      return False
+
+  def isGhostEaten(self, gameState, ghostIndex):
+      """
+      Checks if the ghost in arg ghostIndex was eaten yet during the scared state. 
+      There is no need to check if a ghost was eaten if it already has a value of 0 in
+      its scaredGhostTimer index.
+      """
+      if self.isScared(gameState,ghostIndex):
+        ghost = self.getOpponents(gameState)[ghostIndex] # get the ghost at the arg ghostIndex
+        previousObservation = self.getPreviousObservation() # get the previous observation
+        if previousObservation:
+          previousGhostPosition = previousObservation.getAgentPosition(ghost)
+          if previousGhostPosition:
+            currentGhostPosition = gameState.getAgentPosition(ghost)
+            # If we cannot find the ghost anymore, or if the ghost moved more than 1 position then the ghost
+            # has been eaten.
+            if not currentGhostPosition or self.getMazeDistance(previousGhostPosition,currentGhostPosition) > 1:
+              self.scaredGhostTimers[ghostIndex] = 0 # ghost is no longer scared after being eaten
+              return True
+      return False
+
+  def chooseAction(self, gameState):
+      """
+      Picks among the actions with the highest Q(s,a).
+      """
+      actions = gameState.getLegalActions(self.index)
+      self.isCapsuleEaten(gameState)
+      # You can profile your evaluation time by uncommenting these lines
+      # start = time.time()
+      values = [self.evaluate(gameState, a) for a in actions]
+      # print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
+
+      maxValue = max(values)
+      bestActions = [a for a, v in zip(actions, values) if v == maxValue]
+
+      # decrement scaredTimers if needed.
+      for i in range(len(self.scaredGhostTimers)):
+        self.scaredGhostTimers[i] -=1 if self.scaredGhostTimers[i] > 0 else 0
+
+      foodLeft = len(self.getFood(gameState).asList())
+
+      if foodLeft <= 2:
+        bestDist = 9999
+        for action in actions:
+          successor = self.getSuccessor(gameState, action)
+          pos2 = successor.getAgentPosition(self.index)
+          dist = self.getMazeDistance(self.start,pos2)
+          if dist < bestDist:
+            bestAction = action
+            bestDist = dist
+        return bestAction
+
+      return random.choice(bestActions)
+
+  def isScared(self, gameState, ghostIndex):
+    """
+    Checks if a ghost, given the arg ghostIndex is in a scared state.
+    A ghost is in a scared state if it's timer is greater than 0
+    """
+    return self.scaredGhostTimers[ghostIndex] > 0
+  
+
+
