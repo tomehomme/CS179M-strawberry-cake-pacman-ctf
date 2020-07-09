@@ -313,7 +313,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
   def registerInitialState(self, gameState):
     self.start = gameState.getAgentPosition(self.index)
     CaptureAgent.registerInitialState(self, gameState)
-    self.scaredGhostTimers = [0,0]
+    self.scaredGhostTimers = [0,0] # timer for how long enemy ghost will be scared for
+    self.numFoodCarrying = 0 # how much food pacman is carrying rn
 
 
   def getFeatures(self, gameState, action):
@@ -334,10 +335,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     if len(foodList) > 0: # This should always be True,  but better safe than sorry
       minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
       features['distanceToFood'] = minDistance
-    DIRECTIONS = {'N': (0,1), 'E':(1,0), 'S':(0,-1), 'W':(-1,0) }
-    depth = 1
-   
-    action2 =successor.getLegalActions(self.index)
+    
     numWalls = 4 - len(successor.getLegalActions(self.index)) + 1 # N,E,S,W - available actions + STOP and REVERSE
     # maxWalls = 0
     # for action in action2:
@@ -419,6 +417,16 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         self.scaredGhostTimers[i] -=1 if self.scaredGhostTimers[i] > 0 else 0
 
       foodLeft = len(self.getFood(gameState).asList())
+      if self.numFoodCarrying >= 5:
+        bestDist = 9999
+        for action in actions:
+          successor = self.getSuccessor(gameState, action)
+          pos2 = successor.getAgentPosition(self.index)
+          dist = self.getMazeDistance(self.start,pos2)
+          if dist < bestDist:
+            bestAction = action
+            bestDist = dist
+        return bestAction
 
       if foodLeft <= 2:
         bestDist = 9999
