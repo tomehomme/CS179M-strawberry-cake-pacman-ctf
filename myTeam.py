@@ -315,6 +315,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     CaptureAgent.registerInitialState(self, gameState)
     self.scaredGhostTimers = [0,0] # timer for how long enemy ghost will be scared for
     self.numFoodCarrying = 0 # how much food pacman is carrying rn
+    self.deathCoord = None
+    self.deathScore = 0
 
 
   def getFeatures(self, gameState, action):
@@ -350,6 +352,15 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
     if action == rev: features['reverse'] = 1
 
+    #Here we will go to the death coordinate
+
+    #Get the death coordinates
+    self.getDeathCoordinates(gameState)
+
+    #if there are death coordinates
+    if self.deathCoord and self.eatOrRetreat(gameState):
+      #set sail to those coordinates
+      features['distanceToFood'] = self.getMazeDistance(myPos, self.deathCoord)
     return features
 
   def getWeights(self, gameState, action):
@@ -358,6 +369,9 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     Penalize getting away from food and getting closer to enemy
     Penalize getting trapped between walls
     """
+    if len(self.getFood(gameState).asList()) <= 2:
+      # Return home and try to avoid ghosts
+      return {'successorScore': 100, 'distanceToFood': -1, 'distanceToEnemy': 1.5, 'stop': -300, 'reverse':0.1, 'numWalls':-0.5, 'distanceToHome':-1.5}
     if self.numFoodCarrying >= 5:
       # Do not care about getting more food.
       return {'successorScore': 100, 'distanceToFood': 0, 'distanceToEnemy': 1.5, 'stop': -300, 'reverse':0.1, 'numWalls':-0.5, 'distanceToHome':-1}
@@ -440,6 +454,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
       #       bestAction = action
       #       bestDist = dist
       #   return bestAction
+      if gameState.getAgentPosition(self.index):
+       self.deathCoord = None
 
       return random.choice(bestActions)
 
@@ -460,4 +476,40 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
       foodLeft = len(self.getFood(gameState).asList())
       return previousFood != foodLeft
     return False
+
+  def getDeathCoordinates(self, gameState):
+    """
+    This functions finds the location where pacman dies. These coordinates are needed
+    for pacman to go back and attempt to get the food back.
+    The default for death coordinates is null
+    """
+    previousState = self.getPreviousObservation()
+
+    if previousState:
+      if self.getMazeDistance(gameState.getAgentState(self.index).getPosition(), previousState.getAgentState(self.index).getPosition()) > 1:
+        self.deathCoord = self.start
+        #self.deathScore = self.getScore
+      #get the previous position
+      previousGameState = self.getPreviousObservation()
+
+      if previousGameState:
+        # then check if we are currently at self.start
+        currentPos = gameState.getAgentState(self.index).getPosition()
+          #if we are at self.start:
+        if currentPos == self.start:
+          self.deathCoord = previousGameState.getAgentPosition(self.index)
+
+  """
+  This fuction checks if it is worth it to retreave what has been lost or to 
+  just play as normal
+  """
+  def eatOrRetreat(self, gameState):
+    #get the amout of food that was lost
+    foodLost = 5
+
+    #if the amount of food >= 5 return true
+    if foodLost >= 5:
+      return True
+    return False
+
         
