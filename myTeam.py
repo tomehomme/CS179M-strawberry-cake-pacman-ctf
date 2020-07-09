@@ -315,6 +315,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     CaptureAgent.registerInitialState(self, gameState)
     self.scaredGhostTimers = [0,0] # timer for how long enemy ghost will be scared for
     self.numFoodCarrying = 0 # how much food pacman is carrying rn
+    self.deathCoord = None
+    self.deathScore = 0
 
 
   def getFeatures(self, gameState, action):
@@ -348,6 +350,17 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     if action == Directions.STOP: features['stop'] = 1
     rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
     if action == rev: features['reverse'] = 1
+
+    #Here we will go to the death coordinate
+
+    #Get the death coordinates
+    self.getDeathCoordinates(gameState)
+
+    #if there are death coordinates
+    if self.deathCoord and self.eatOrRetreat(gameState):
+      #set sail to those coordinates
+      features['distanceToFood'] = self.getMazeDistance(myPos, self.deathCoord)
+
     return features
 
   def getWeights(self, gameState, action):
@@ -428,6 +441,9 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             bestDist = dist
         return bestAction
 
+      if gameState.getAgentPosition(self.index):
+        self.deathCoord = None
+
       if foodLeft <= 2:
         bestDist = 9999
         for action in actions:
@@ -447,3 +463,43 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     A ghost is in a scared state if it's timer is greater than 0
     """
     return self.scaredGhostTimers[ghostIndex] > 0
+  
+  
+  """
+    This functions finds the location where pacman dies. These coordinates are needed
+    for pacman to go back and attempt to get the food back.
+
+    The default for death coordinates is null
+
+    """
+  def getDeathCoordinates(self, gameState):
+
+    previousState = self.getPreviousObservation()
+
+    if previousState:
+      if self.getMazeDistance(gameState.getAgentState(self.index).getPosition(), previousState.getAgentState(self.index).getPosition()) > 1:
+        self.deathCoord = self.start
+        #self.deathScore = self.getScore
+      #get the previous position
+      previousGameState = self.getPreviousObservation()
+
+      if previousGameState:
+        # then check if we are currently at self.start
+        currentPos = gameState.getAgentState(self.index).getPosition()
+          #if we are at self.start:
+        if currentPos == self.start:
+          self.deathCoord = previousGameState.getAgentPosition(self.index)
+
+  """
+  This fuction checks if it is worth it to retreave what has been lost or to 
+  just play as normal
+  """
+  def eatOrRetreat(self, gameState):
+    #get the amout of food that was lost
+    foodLost = 5
+    
+    #if the amount of food >= 5 return true
+    if foodLost >= 5:
+      return True
+    return False
+    
