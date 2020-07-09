@@ -341,7 +341,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
     features['numWalls'] = numWalls
     
-    if self.numFoodCarrying >=5 or len(foodList) < 2:
+    if self.numFoodCarrying >=5 or len(foodList) <= 2:
       pos2 = successor.getAgentPosition(self.index)
       dist = self.getMazeDistance(self.start,pos2)
       features['distanceToHome'] = dist
