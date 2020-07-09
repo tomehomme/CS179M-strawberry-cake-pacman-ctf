@@ -337,17 +337,19 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
       features['distanceToFood'] = minDistance
     
     numWalls = 4 - len(successor.getLegalActions(self.index)) + 1 # N,E,S,W - available actions + STOP and REVERSE
-    # maxWalls = 0
-    # for action in action2:
-    #   successor2 = self.getSuccessor(successor, action)
-    #   maxWalls = max(maxWalls,(4 - len(successor2.getLegalActions(self.index)) + 1)) # N,E,S,W - available actions + STOP and REVERSE
-    # numWalls+=maxWalls
+
 
     features['numWalls'] = numWalls
+    
+    if self.numFoodCarrying >=5 or len(foodList) < 2:
+      pos2 = successor.getAgentPosition(self.index)
+      dist = self.getMazeDistance(self.start,pos2)
+      features['distanceToHome'] = dist
 
     if action == Directions.STOP: features['stop'] = 1
     rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
     if action == rev: features['reverse'] = 1
+
     return features
 
   def getWeights(self, gameState, action):
@@ -356,9 +358,11 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     Penalize getting away from food and getting closer to enemy
     Penalize getting trapped between walls
     """
-    if self.isScared(gameState, 0):
-      return {'successorScore': 100, 'distanceToFood': -1, 'distanceToEnemy': -0.5, 'stop': -300, 'reverse':0.1, 'numWalls':-0.5}
-    if self.isScared(gameState, 1):  
+    if self.numFoodCarrying >= 5:
+      # Do not care about getting more food.
+      return {'successorScore': 100, 'distanceToFood': 0, 'distanceToEnemy': 1.5, 'stop': -300, 'reverse':0.1, 'numWalls':-0.5, 'distanceToHome':-1}
+    # TODO: figure out individual ghost scared weights
+    if self.isScared(gameState, 0) and self.isScared(gameState, 1):
       return {'successorScore': 100, 'distanceToFood': -1, 'distanceToEnemy': -0.5, 'stop': -300, 'reverse':0.1, 'numWalls':-0.5}
     return {'successorScore': 100, 'distanceToFood': -1, 'distanceToEnemy': 1.5, 'stop': -300, 'reverse':0.1, 'numWalls':-0.5}
 
@@ -417,27 +421,25 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         self.scaredGhostTimers[i] -=1 if self.scaredGhostTimers[i] > 0 else 0
 
       foodLeft = len(self.getFood(gameState).asList())
-      if self.numFoodCarrying >= 5:
-        bestDist = 9999
-        for action in actions:
-          successor = self.getSuccessor(gameState, action)
-          pos2 = successor.getAgentPosition(self.index)
-          dist = self.getMazeDistance(self.start,pos2)
-          if dist < bestDist:
-            bestAction = action
-            bestDist = dist
-        return bestAction
+      if self.ateFood(gameState):
+        self.numFoodCarrying += 1
+      if not gameState.getAgentState(self.index).isPacman:
+        # if we are a ghost, then that means we are back on our side
+        self.numFoodCarrying = 0
 
-      if foodLeft <= 2:
-        bestDist = 9999
-        for action in actions:
-          successor = self.getSuccessor(gameState, action)
-          pos2 = successor.getAgentPosition(self.index)
-          dist = self.getMazeDistance(self.start,pos2)
-          if dist < bestDist:
-            bestAction = action
-            bestDist = dist
-        return bestAction
+
+      # I haven't tested to see if PacMan performs well with his 'return home' weights when there are only 2 food left.
+      # (don't delete)
+      # if foodLeft <= 2:
+      #   bestDist = 9999
+      #   for action in actions:
+      #     successor = self.getSuccessor(gameState, action)
+      #     pos2 = successor.getAgentPosition(self.index)
+      #     dist = self.getMazeDistance(self.start,pos2)
+      #     if dist < bestDist:
+      #       bestAction = action
+      #       bestDist = dist
+      #   return bestAction
 
       return random.choice(bestActions)
 
@@ -447,3 +449,15 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     A ghost is in a scared state if it's timer is greater than 0
     """
     return self.scaredGhostTimers[ghostIndex] > 0
+
+  def ateFood(self, gameState):
+    """
+    Returns true if PacMan ate food in the last turn
+    """
+    previousObservation = self.getPreviousObservation() # get the previous observation
+    if previousObservation:
+      previousFood = len(self.getFood(previousObservation).asList()) # get previous turn number of food on enemy side
+      foodLeft = len(self.getFood(gameState).asList())
+      return previousFood != foodLeft
+    return False
+        
