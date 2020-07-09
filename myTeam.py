@@ -221,18 +221,6 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     maxValue = max(values)
     bestActions = [a for a, v in zip(actions, values) if v == maxValue]
     
-    foodLeft = len(self.getFoodYouAreDefending(gameState).asList())
-
-    # if foodLeft <= 2:
-    #   bestDist = 9999
-    #   for action in actions:
-    #     successor = self.getSuccessor(gameState, action)
-    #     pos2 = successor.getAgentPosition(self.index)
-    #     dist = self.getMazeDistance(self.start,pos2)
-    #     if dist < bestDist:
-    #       bestAction = action
-    #       bestDist = dist
-    #   return bestAction
     return random.choice(bestActions)
     
   def isStuck(self,gameState,action):
@@ -268,9 +256,12 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     Weights of each feature. In a normal ghost state, we will try to penalize the action that does not eat PacMan and increases distance to PacMan.
     We will also penalize the action that makes the ghost go back to its original starting position heavily.
     """
-    if self.isScared(gameState) and self.scared<15:
+    if self.isScared(gameState):
       # Worth it to get eaten quickly when we are scared, so only run away when the timer is small (so we don't get eaten)
-      return {'numInvaders': 1000, 'onDefense': 100, 'invaderDistance': 0,'stop': -30,'reverse': -2, 'beginning': -400}
+      if self.scared > 25:
+        return {'numInvaders': 1000, 'onDefense': 100, 'invaderDistance': -10,'stop': -30,'reverse': -2, 'beginning': -400}
+      else:  
+        return {'numInvaders': 1000, 'onDefense': 100, 'invaderDistance': 0,'stop': -30,'reverse': -2, 'beginning': -400}
     return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10,'stop': -30,'reverse': -2, 'beginning': -400}
 
   def ourCapsuleEaten(self,gameState):
@@ -328,7 +319,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
   def getFeatures(self, gameState, action):
     features = util.Counter()
     successor = self.getSuccessor(gameState, action)
-    foodList = self.getFood(successor).asList()    
+    foodList = self.getFood(successor).asList()
+    foodList += self.getCapsules(successor)  # say that capsules are also food
     features['successorScore'] = -len(foodList) # self.getScore(successor)
 
     # Computes distance to invaders we can see (within 5 distance)
@@ -337,22 +329,40 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     myPos = successor.getAgentState(self.index).getPosition()
     if len(invaders) > 0:
       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
-      features['invaderDistance'] = min(dists)
-      # print(min(dists))
+      features['distanceToEnemy'] = min(dists) if min(dists) < 10 else 0
     # Compute distance to the nearest food
     if len(foodList) > 0: # This should always be True,  but better safe than sorry
       minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
       features['distanceToFood'] = minDistance
+    DIRECTIONS = {'N': (0,1), 'E':(1,0), 'S':(0,-1), 'W':(-1,0) }
+    depth = 1
+   
+    action2 =successor.getLegalActions(self.index)
+    numWalls = 4 - len(successor.getLegalActions(self.index)) + 1 # N,E,S,W - available actions + STOP and REVERSE
+    # maxWalls = 0
+    # for action in action2:
+    #   successor2 = self.getSuccessor(successor, action)
+    #   maxWalls = max(maxWalls,(4 - len(successor2.getLegalActions(self.index)) + 1)) # N,E,S,W - available actions + STOP and REVERSE
+    # numWalls+=maxWalls
+
+    features['numWalls'] = numWalls
 
     if action == Directions.STOP: features['stop'] = 1
+    rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
+    if action == rev: features['reverse'] = 1
     return features
 
   def getWeights(self, gameState, action):
     """
     Gives Weights for PacMan gameState features. 
     Penalize getting away from food and getting closer to enemy
+    Penalize getting trapped between walls
     """
-    return {'successorScore': 100, 'distanceToFood': -5, 'distanceToEnemy': 6, 'stop': -30}
+    if self.isScared(gameState, 0):
+      return {'successorScore': 100, 'distanceToFood': -1, 'distanceToEnemy': -0.5, 'stop': -300, 'reverse':0.1, 'numWalls':-0.5}
+    if self.isScared(gameState, 1):  
+      return {'successorScore': 100, 'distanceToFood': -1, 'distanceToEnemy': -0.5, 'stop': -300, 'reverse':0.1, 'numWalls':-0.5}
+    return {'successorScore': 100, 'distanceToFood': -1, 'distanceToEnemy': 1.5, 'stop': -300, 'reverse':0.1, 'numWalls':-0.5}
 
   def isCapsuleEaten(self, gameState):
     """
