@@ -317,6 +317,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     self.numFoodCarrying = 0 # how much food pacman is carrying rn
     self.deathCoord = None
     self.deathScore = 0
+    path = []
 
 
   def getFeatures(self, gameState, action):
