@@ -464,16 +464,18 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
       if len(self.pathTaken) > 0:
         #call choice function
-        print("Here len(self.pathTaken) > 0")
+        #print("Here len(self.pathTaken) > 0")
         actionChosen = self.bestPath(gameState, bestActions)
       else:
         #else choose a random action
-        print("Here choose first Action")
+        #print("Here choose first Action")
         actionChosen = bestActions[0]
         #actionChosen = random.choice(bestActions)
 
-      self.pathTaken.append(actionChosen)
+      #self.pathTaken.append(actionChosen)
+      self.pathTaken.append(bestActions)
 
+      print(actionChosen)
       return actionChosen
   
   """
@@ -482,16 +484,18 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
   """
   def bestPath(self,gameState, paths):
     
-    print("Here  bestPath(self,gameState, paths)")
-    print(len(paths))
+    #print("Here  bestPath(self,gameState, paths)")
+    #print(len(paths))
 
     bestChoices = [paths[0]]
 
     for p in paths:
       if p not in self.pathTaken:
+        #print("pruned")
         bestChoices.append(p)
 
     bestChoices.sort()
+    #print("returned Val: ", bestChoices[0])
     return bestChoices[0]
 
   def isScared(self, gameState, ghostIndex):
