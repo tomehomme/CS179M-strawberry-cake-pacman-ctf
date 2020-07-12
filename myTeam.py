@@ -424,6 +424,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
       """
       actions = gameState.getLegalActions(self.index)
       self.isCapsuleEaten(gameState)
+      actionChosen = None
       # You can profile your evaluation time by uncommenting these lines
       # start = time.time()
       values = [self.evaluate(gameState, a) for a in actions]
@@ -432,6 +433,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
       maxValue = max(values)
       bestActions = [a for a, v in zip(actions, values) if v == maxValue]
 
+      #for a in range(len(bestActions)):
+        #print(str(a))
       # decrement scaredTimers if needed.
       for i in range(len(self.scaredGhostTimers)):
         self.scaredGhostTimers[i] -=1 if self.scaredGhostTimers[i] > 0 else 0
@@ -459,7 +462,37 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
       if gameState.getAgentPosition(self.index):
        self.deathCoord = None
 
-      return random.choice(bestActions)
+      if len(self.pathTaken) > 0:
+        #call choice function
+        print("Here len(self.pathTaken) > 0")
+        actionChosen = self.bestPath(gameState, bestActions)
+      else:
+        #else choose a random action
+        print("Here choose first Action")
+        actionChosen = bestActions[0]
+        #actionChosen = random.choice(bestActions)
+
+      self.pathTaken.append(actionChosen)
+
+      return actionChosen
+  
+  """
+  paths is the best actions array
+  we need to choose the best one based on cost
+  """
+  def bestPath(self,gameState, paths):
+    
+    print("Here  bestPath(self,gameState, paths)")
+    print(len(paths))
+
+    bestChoices = [paths[0]]
+
+    for p in paths:
+      if p not in self.pathTaken:
+        bestChoices.append(p)
+
+    bestChoices.sort()
+    return bestChoices[0]
 
   def isScared(self, gameState, ghostIndex):
     """
@@ -507,7 +540,14 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
   """
   def eatOrRetreat(self, gameState):
     #get the amout of food that was lost
+
     foodLost = 5
+
+    #to do --> get the amount of food Lost
+    #prev = self.getPreviousObservation()
+    #prevPrev = self.getPreviousObservation().getPreviousObservation()
+    #if prev and prevPrev:
+      #foodLost = len(prevPrev.getAgentState(self.index).getFood().asList())
 
     #if the amount of food >= 5 return true
     if foodLost >= 5:
