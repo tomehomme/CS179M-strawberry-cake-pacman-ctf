@@ -42,6 +42,7 @@ We decided to use this strategy because we wanted to make the Ghost a good defen
 Paris worked on the Ghost agent while Osvaldo worked on the PacMan agent. Paris helped Osvaldo in the development of the PacMan agent.
 
 #### How well the agent works
+The Agents were tested by running against the Baseline Team 100 times: 50 times as Red team and 50 times as Blue team. On these 100 trials, there was a 90% win rate as the Red team and 100% win rate as the Blue team. On Average, the team wins by an average of 8.62 points as the Red team, and wins by an average of 11.78 points as the Blue team.
 
 **Ghost:** Ghost is capable of quickly locating the enemy PacMan and pursuing it using the path that results in the shortest maze distance. As soon as the enemy eats a food pellet, the Ghost can try to chase after the PacMan. Some work that can be done is having the Ghost be able to locate the enemy PacMan agent as soon as they enter our side.
 
