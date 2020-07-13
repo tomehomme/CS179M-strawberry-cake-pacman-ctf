@@ -461,6 +461,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
       #   return bestAction
       if gameState.getAgentPosition(self.index):
        self.deathCoord = None
+       self.start
 
       if len(self.pathTaken) > 0:
         #call choice function
@@ -475,7 +476,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
       #self.pathTaken.append(actionChosen)
       self.pathTaken.append(bestActions)
 
-      print(actionChosen)
+      #print(actionChosen)
       return actionChosen
   
   """
@@ -541,11 +542,29 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
   """
   This fuction checks if it is worth it to retreave what has been lost or to 
   just play as normal
+
+  self.getFood(gameState) compare to self.getFood(self.observationHistory[-3])
+  len(getFood(gameState).asList())
+
   """
   def eatOrRetreat(self, gameState):
     #get the amout of food that was lost
 
     foodLost = 5
+
+    #self.numFoodCarrying // getAgentState(self.index)
+
+    if self.observationHistory[-1]:
+      #currentFood = self.getFood(gameState)
+      prevPrevFood = len(self.getFood(self.observationHistory[0]).asList())
+      prevFood     = len(self.getFood(self.observationHistory[-1]).asList())
+      print("PPfoodCount: ", prevPrevFood)
+      print("PfoodCount: ",  prevFood)
+      #AgentState = self.getPreviousObservation().getAgentState(self.index)
+      AgentStateScore = len(self.getPreviousObservation().getBlueFood().asList())
+      print("AgentStateScore: ",  AgentStateScore)
+      foodLost = abs(AgentStateScore - prevFood)
+
 
     #to do --> get the amount of food Lost
     #prev = self.getPreviousObservation()
@@ -554,8 +573,11 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
       #foodLost = len(prevPrev.getAgentState(self.index).getFood().asList())
 
     #if the amount of food >= 5 return true
+    print("Food Lost: ", foodLost)
     if foodLost >= 5:
+      print("True")
       return True
+    print("false")
     return False
 
         
