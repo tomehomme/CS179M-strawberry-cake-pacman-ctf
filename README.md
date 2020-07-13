@@ -1,6 +1,6 @@
-# Team strawberry-cake pacman-ctf
+# Team strawberry-cake PacMan-ctf
 ## Team Members - Paris Hom and Osvaldo Moreno Ornelas
-## Python3 version of UC Berkeley's CS 188 Pacman Capture the Flag project
+## Python3 version of UC Berkeley's CS 188 PacMan Capture the Flag project
 
 ### Original Licensing Agreement (which also extends to this version)
 Licensing Information:  You are free to use or extend these projects for
@@ -8,63 +8,48 @@ educational purposes provided that (1) you do not distribute or publish
 solutions, (2) you retain this notice, and (3) you provide clear
 attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
 
-Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+Attribution Information: The PacMan AI projects were developed at UC Berkeley.
 The core projects and autograders were primarily created by John DeNero
 (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
 Student side autograding was added by Brad Miller, Nick Hay, and
 Pieter Abbeel (pabbeel@cs.berkeley.edu).
 
 ### This version attribution
-This version (cshelton/pacman-ctf github repo) was modified by Christian
+This version (cshelton/PacMan-ctf github repo) was modified by Christian
 Shelton (cshelton@cs.ucr.edu) on June 23, 2020 to run under Python 3.
 
 
-## Getting Started
-(much of this is from the original HTML documentation, in origdoc/)
+## Agents Stragety
+The agents both have an aggressive strategy.
+#### Ghost Agent
+For the Ghost agent, the class used is DefensiveReflexAgent. 
 
-### Short Version:
+In this class, we store the most recent position of the enemy PacMan agent if it is available. Otherwise, the DefensiveReflexAgent will wander until it find the enemy agent or when food on our side has been eaten. If our food has been eaten, our Ghost agent will head toward the location of the most recently eaten food.
 
-run `python capture.py`
+If the Ghost agent is scared, it will try to get eaten by the enemy PacMan if it has been scared for less than 20 moves. Otherwise, the Ghost agent will avoid getting eaten by the enemy PacMan.
+#### PacMan Agent
+The PacMan agent uses OffensiveReflexAgent. 
 
-make your agents by modifying `myTeam.py`
+In this class, we always try to seek the closest food. When eating we keep a counter. When the counter reaches 4, we go back and dump the food back to base. If the PacMan is killed while carrying 5 orbs, the PacMan goes back to the place the orbs were dumped. 
 
-run `python capture.py --red=myTeam` to test your team as Red
+Also, the PacMan remembers the decisions that have been made and when deciding where to go, it tries to go to a better direction then it did last time, rather than making a random decision.
 
-run `python capture.py --help` to see other options
+### Decision to pursue this strategy
+We decided to use this strategy because we wanted to make the Ghost a good defender of the food while having the PacMan agent launch an offensive that took small amounts of risk at a time.
 
 
-### Longer Version:
+### How the work was divided
+Paris worked on the Ghost agent while Osvaldo worked on the PacMan agent. Paris helped Osvaldo in the development of the PacMan agent.
 
-The challenge is to design agents to play Capture-the-Flag in a Pacman-like
-arena.   
+#### How well the agent works
 
-![Example Game](/origdoc/capture_the_flag.png)
+**Ghost:** Ghost is capable of quickly locating the enemy PacMan and pursuing it using the path that results in the shortest maze distance. As soon as the enemy eats a food pellet, the Ghost can try to chase after the PacMan. Some work that can be done is having the Ghost be able to locate the enemy PacMan agent as soon as they enter our side.
 
-#### Rules
+**PacMan:**  PacMan retrieves the food as expected. PacMan makes decisions based on a bank. The decisions are not as smart or dynamic as expected, there is still work to do in that aspect. PacMan "dances" around Ghost if there is one always trying to block. It is a work in progress to make PacMan flank the Ghost.
 
-**Layout:** The Pacman map is divided into two halves: blue (right) and red (left).  Red agents (which all have even indices) must defend the red food while trying to eat the blue food.  When on the red side, a red agent is a ghost.  When crossing into enemy territory, the agent becomes a Pacman.
+#### Lessons learned from the iteration
 
-**Scoring:**  When a Pacman eats a food dot, the food is stored up inside of that Pacman and removed from the board.  When a Pacman returns to his side of the board, he "deposits" the food dots he is carrying, earning one point per food pellet delivered.  Red team scores are positive, while Blue team scores are negative.
+**To Change:** PacMan's decision making algorithm into something more dynamic and self-learning. The Ghost does not need to change much. But, the Ghost agent can improve on locating where the enemy PacMan is as soon as they enter our side, instead of waiting until the opponent PacMan consumes our food.
 
-**Eating Pacman:** When a Pacman is eaten by an opposing ghost, the Pacman returns to its starting position (as a ghost).  The food dots that the Pacman was carrying are deposited back onto the board.  No points are awarded for eating an opponent.
-
-**Power capsules:** If Pacman eats a power capsule, agents on the opposing team become "scared" for the next 40 moves, or until they are eaten and respawn, whichever comes sooner.  Agents that are "scared" are susceptible while in the form of ghosts (i.e. while on their own team's side) to being eaten by Pacman.  Specifically, if Pacman collides with a "scared" ghost, Pacman is unaffected and the ghost respawns at its starting position (no longer in the "scared" state).
-
-**Observations:** Agents can only observe an opponent's configuration (position and direction) if they or their teammate is within 5 squares (Manhattan distance).  In addition, an agent always gets a noisy distance reading for each agent on the board, which can be used to approximately locate unobserved opponents.
-
-**Winning:** A game ends when one team eats all but two of the opponents' dots.  Games are also limited to 1200 agent moves (300 moves per each of the four agents).  If this move limit is reached, whichever team has eaten the most food wins. If the score is zero (i.e., tied) this is recorded as a tie game.
-
-**Computation Time:** Each agent has 1 second to return each action. Each move which does not return within one second will incur a warning.  After three warnings, or any single move taking more than 3 seconds, the game is forfeit.  There will be an initial start-up allowance of 15 seconds (use the `registerInitialState` method). If you agent times out or otherwise throws an exception, an error message will be present in the log files, which you can download from the results page (see below).
-
-#### Key data structures
-
-`CaptureAgent` (in `captureAgent.py`) is a useful base class for your agents.
-It has a variety of methods that can return useful information.  This includes a `distancer` field that contains a `distanceCalculator` object that can automatically calculate (and cache) the distances between every two points in the maze.
-
-`GameState` (in `capture.py`) has still more information that can be queried.  A current `GameState` object is passed into your agents' `chooseAction` methods.  Note that `GameState` objects can return the set of legal actions for an agent and can generate new `GameState` s that would result from any action.
-
-`game.py` has code that defines `Directions`, `Configurations`, `AgentState`, and a `Grid`, all of which might be handy and save extra work on your part.
-
-`util.py` has code that might prove helpful.  Of particular note is the `Counter` class which implements a dictionary, but where unused keys default to mapping to 0 (instead of undefined).  A `Counter` mapping positions (integer pairs) to a real value can be used with `CaptureAgent.displayDistributionsOverPositions` to color the cells on the map with debugging information.
-
-`myTeam.py` has skeleton code for generating a team of agents.  Its format should not be changed and needs to have the function `createTeam` as specified.  You should copy this file, change its name, and use it to build your own team.
+**To Keep:** One thing that can be kept for the PacMan (offensive) agent is the way the food is retrieved and brought back. The food dumped to go back and get it back if it is higher than a set limit.
+As for the Ghost (defensive) agent, we will keep how the Ghost goes to the location of the most recently eaten food when it does not have the coordinates of the enemy PacMan. We will also keep how the Ghost saves the most recent location of the enemy PacMan agent.
