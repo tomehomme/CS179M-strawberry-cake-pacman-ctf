@@ -186,7 +186,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
       features['invaderDistance'] = min(dists)
     elif numEnemies and self.target:
       features['invaderDistance'] = self.getMazeDistance(myPos,self.target)
-
+    features['live'] = 1 if myPos != self.start else -1
     if action == Directions.STOP: features['stop'] = 1
     rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
     if action == rev: features['reverse'] = 1
@@ -204,8 +204,6 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
       weights = self.getWeights(gameState, action)
       return features*weights
 
-
- 
   def chooseAction(self,gameState):
     """
     Picks on an action that gives the highest evaluation.
@@ -260,11 +258,11 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     """
     if self.isScared(gameState):
       # Worth it to get eaten quickly when we are scared, so only run away when the timer is small (so we don't get eaten)
-      if self.scared > 25:
-        return {'numInvaders': 1000, 'onDefense': 100, 'invaderDistance': -10,'stop': -30,'reverse': -2, 'beginning': -400}
+      if self.scared > 20:
+        return {'numInvaders': 0, 'onDefense': 100, 'invaderDistance': -20,'stop': -30,'reverse': -2, 'beginning': -400, 'live':-1000}
       else:  
-        return {'numInvaders': 1000, 'onDefense': 100, 'invaderDistance': 0,'stop': -30,'reverse': -2, 'beginning': -400}
-    return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10,'stop': -30,'reverse': -2, 'beginning': -400}
+        return {'numInvaders': 0, 'onDefense': 100, 'invaderDistance': 0,'stop': -30,'reverse': -2, 'beginning': -400, 'live':1000}
+    return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10,'stop': -30,'reverse': -2, 'beginning': -400, 'live': 0}
 
   def ourCapsuleEaten(self,gameState):
     """
@@ -303,8 +301,6 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
 
 
-
-
 ################
 # Pacman Agent #
 ################
@@ -321,9 +317,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     self.numFoodCarrying = 0 # how much food pacman is carrying rn
     self.deathCoord = None
     self.deathScore = 0
-    self.MIN = -1000000
-    self.MAX = 10000000
-    self.opponents = self.getOpponents(gameState)
+    self.pathChoices = []
+    self.pathTaken   = []
 
 
   def getFeatures(self, gameState, action):
@@ -358,6 +353,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     if action == Directions.STOP: features['stop'] = 1
     rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
     if action == rev: features['reverse'] = 1
+
+    #Here we will go to the death coordinate
 
     #Get the death coordinates
     self.getDeathCoordinates(gameState)
@@ -421,100 +418,23 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
               return True
       return False
 
-  def OpponentGhostEvaluate(self,gameState,action,ghostIndex):
-    """
-    evaluates the opponent ghost's state for alpha beta pruning.
-    evaluates by how many of our agents are on the opponent side and 
-    how far the closest agent on our team is.
-    """
-    features= util.Counter()
-    ourAgents = [gameState.getAgentState(i) for i in self.getTeam(gameState)]
-    ourPacMan = [pacMan for pacMan in ourAgents if pacMan.isPacman]
-    features['numInvaders'] = len(ourPacMan)
-    # get the distance between ghost and pacman
-    features['invaderDistance'] = self.getMazeDistance(gameState.getAgentState(self.index).getPosition(), gameState.getAgentState(ghostIndex).getPosition())
-    weights = {'numInvaders': -1000, 'invaderDistance': -10}
-    return features * weights
-      
-  def AlphaBeta(self, gameState, action, prevAction, depth, agentIndex, alpha, beta):
-      """
-      AlphaBeta pruning implementation for offensive (PacMan) agent.
-      This will be used when our PacMan meets a ghost.
-      gameState parameter through gameState.generateSuccessor(agentIndex,action)
-      agentIndex should change between pacMan's and the two opponent index
-      """ 
-      # we will stop after going down 4 states and evaluate
-      if depth == 6:
-        if agentIndex in self.getTeam(gameState):
-          # evaluate current gameState
-          score = (self.evaluate(gameState,'Stop'))
-          return  {'score':score, 'action':prevAction}
-        else:
-          if gameState.getAgentState(agentIndex).getPosition():
-            # evaluate current gameState
-            return {'score':self.OpponentGhostEvaluate(gameState, prevAction, agentIndex),'action':prevAction}
-
-      if depth %2 == 0:
-          # Even depth are PacMan
-          best = self.MIN 
-          # Recur for getting all the possible child states
-          Actions = gameState.getLegalActions(self.index)
-          Actions.remove('Stop')
-          val =  {'score':self.MIN, 'action':Actions[0]}
-          val2 = {'score':self.MIN, 'action':Actions[0]}
-          bestAction = Actions[0]
-          for Action in Actions:  
-              # we have to have two trees for both the enemy ghosts
-              successor = gameState.generateSuccessor(agentIndex,Action)
-              if gameState.getAgentState(self.opponents[0]).getPosition():
-                val = self.AlphaBeta(successor, Action, action,depth + 1,  
-                            self.opponents[0],alpha, beta)
-              if gameState.getAgentState(self.opponents[1]).getPosition():
-                val2 = self.AlphaBeta(successor, Action,action,depth + 1,  self.opponents[1],alpha, beta) 
-              bestVal = val if val['score'] > val2['score'] else val2 
-              if bestVal['score'] > best:
-                # will get the best action after using evaluation function
-                best = bestVal['score']
-                bestAction = Action
-              alpha = max(alpha, best)  
-              # Alpha Beta Pruning  
-              if beta <= alpha:  
-                  break        
-          return {'score':best, 'action':bestAction}      
-      else: 
-          # if index passed in is Opponent Ghost agent
-          # Recur for getting all the possible child states
-          Actions = gameState.getLegalActions(agentIndex) 
-          Actions.remove('Stop')
-          best = self.MAX
-          bestAction = Actions[0] 
-          for Action in Actions:  
-              # pacMan's turn after 
-              successor = gameState.generateSuccessor(agentIndex,Action)
-              val = self.AlphaBeta(successor, Action, action,depth + 1,  
-                              self.index,alpha, beta)  
-              if val['score'] < best:
-                best = val['score']
-                bestAction = Action
-              beta = min(beta, best)  
-              # Alpha Beta Pruning  
-              if beta <= alpha:  
-                  break    
-          return {'score':best, 'action':bestAction} 
-
   def chooseAction(self, gameState):
       """
       Picks among the actions with the highest Q(s,a).
       """
       actions = gameState.getLegalActions(self.index)
-      # check if our current state has ghosts that we can see
-      enemies = [gameState.getAgentState(i) for i in self.getOpponents(gameState)]
-      enemyGhosts = [a for a in enemies if not a.isPacman and a.getPosition() != None]
+      self.isCapsuleEaten(gameState)
+      actionChosen = None
+      # You can profile your evaluation time by uncommenting these lines
+      # start = time.time()
+      values = [self.evaluate(gameState, a) for a in actions]
+      # print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
 
-      # Game State Profiling
-      self.isCapsuleEaten(gameState) 
-      if gameState.getAgentPosition(self.index):
-       self.deathCoord = None
+      maxValue = max(values)
+      bestActions = [a for a, v in zip(actions, values) if v == maxValue]
+
+      #for a in range(len(bestActions)):
+        #print(str(a))
       # decrement scaredTimers if needed.
       for i in range(len(self.scaredGhostTimers)):
         self.scaredGhostTimers[i] -=1 if self.scaredGhostTimers[i] > 0 else 0
@@ -539,20 +459,45 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
       #       bestAction = action
       #       bestDist = dist
       #   return bestAction
+      if gameState.getAgentPosition(self.index):
+       self.deathCoord = None
+       self.start
 
+      if len(self.pathTaken) > 0:
+        #call choice function
+        #print("Here len(self.pathTaken) > 0")
+        actionChosen = self.bestPath(gameState, bestActions)
+      else:
+        #else choose a random action
+        #print("Here choose first Action")
+        actionChosen = bestActions[0]
+        #actionChosen = random.choice(bestActions)
 
-      if enemyGhosts and self.getMazeDistance(gameState.getAgentState(self.index).getPosition(), enemyGhosts[0].getPosition()) < 8:
-        # begin alpha beta pruning with PacMan as Max and depth of 0
-        ab = self.AlphaBeta(gameState, actions[0], 'Stop',0, self.index,-100000, 100000)
-        return ab['action']
+      #self.pathTaken.append(actionChosen)
+      self.pathTaken.append(bestActions)
 
-      # You can profile your evaluation time by uncommenting these lines
-      # start = time.time()
-      values = [self.evaluate(gameState, a) for a in actions]
-      # print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
-      maxValue = max(values)
-      bestActions = [a for a, v in zip(actions, values) if v == maxValue]
-      return random.choice(bestActions)
+      #print(actionChosen)
+      return actionChosen
+  
+  """
+  paths is the best actions array
+  we need to choose the best one based on cost
+  """
+  def bestPath(self,gameState, paths):
+    
+    #print("Here  bestPath(self,gameState, paths)")
+    #print(len(paths))
+
+    bestChoices = [paths[0]]
+
+    for p in paths:
+      if p not in self.pathTaken:
+        #print("pruned")
+        bestChoices.append(p)
+
+    bestChoices.sort()
+    #print("returned Val: ", bestChoices[0])
+    return bestChoices[0]
 
   def isScared(self, gameState, ghostIndex):
     """
@@ -597,14 +542,42 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
   """
   This fuction checks if it is worth it to retreave what has been lost or to 
   just play as normal
+
+  self.getFood(gameState) compare to self.getFood(self.observationHistory[-3])
+  len(getFood(gameState).asList())
+
   """
   def eatOrRetreat(self, gameState):
-    #get the amount of food that was lost
+    #get the amout of food that was lost
+
     foodLost = 5
 
+    #self.numFoodCarrying // getAgentState(self.index)
+
+    if self.observationHistory[-1]:
+      #currentFood = self.getFood(gameState)
+      prevPrevFood = len(self.getFood(self.observationHistory[0]).asList())
+      prevFood     = len(self.getFood(self.observationHistory[-1]).asList())
+      print("PPfoodCount: ", prevPrevFood)
+      print("PfoodCount: ",  prevFood)
+      #AgentState = self.getPreviousObservation().getAgentState(self.index)
+      AgentStateScore = len(self.getPreviousObservation().getBlueFood().asList())
+      print("AgentStateScore: ",  AgentStateScore)
+      foodLost = abs(AgentStateScore - prevFood)
+
+
+    #to do --> get the amount of food Lost
+    #prev = self.getPreviousObservation()
+    #prevPrev = self.getPreviousObservation().getPreviousObservation()
+    #if prev and prevPrev:
+      #foodLost = len(prevPrev.getAgentState(self.index).getFood().asList())
+
     #if the amount of food >= 5 return true
+    print("Food Lost: ", foodLost)
     if foodLost >= 5:
+      print("True")
       return True
+    print("false")
     return False
 
- 
+        
