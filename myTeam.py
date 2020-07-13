@@ -209,6 +209,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     Picks on an action that gives the highest evaluation.
     """
     actions = gameState.getLegalActions(self.index)
+    actions.remove('Stop')
     # You can profile your evaluation time by uncommenting these lines
     # start = time.time()
     values = [self.evaluate(gameState, a) for a in actions]
@@ -558,11 +559,17 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
       #currentFood = self.getFood(gameState)
       prevPrevFood = len(self.getFood(self.observationHistory[0]).asList())
       prevFood     = len(self.getFood(self.observationHistory[-1]).asList())
-      print("PPfoodCount: ", prevPrevFood)
-      print("PfoodCount: ",  prevFood)
+      if self.red:
+        AgentStateScore = len(self.getPreviousObservation().getBlueFood().asList())
+      else:
+        #print("blue Math")
+        AgentStateScore = len(self.getPreviousObservation().getRedFood().asList())
+      #print("AgentStateScore: ",  AgentStateScore)
+      # print("PPfoodCount: ", prevPrevFood)
+      # print("PfoodCount: ",  prevFood)
       #AgentState = self.getPreviousObservation().getAgentState(self.index)
-      AgentStateScore = len(self.getPreviousObservation().getBlueFood().asList())
-      print("AgentStateScore: ",  AgentStateScore)
+      # AgentStateScore = len(self.getPreviousObservation().getBlueFood().asList())
+      # print("AgentStateScore: ",  AgentStateScore)
       foodLost = abs(AgentStateScore - prevFood)
 
 
@@ -573,11 +580,11 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
       #foodLost = len(prevPrev.getAgentState(self.index).getFood().asList())
 
     #if the amount of food >= 5 return true
-    print("Food Lost: ", foodLost)
+    # print("Food Lost: ", foodLost)
     if foodLost >= 5:
-      print("True")
+      # print("True")
       return True
-    print("false")
+    # print("false")
     return False
 
         
