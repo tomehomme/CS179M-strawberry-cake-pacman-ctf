@@ -19,52 +19,29 @@ This version (cshelton/pacman-ctf github repo) was modified by Christian
 Shelton (cshelton@cs.ucr.edu) on June 23, 2020 to run under Python 3.
 
 
-## Getting Started
-(much of this is from the original HTML documentation, in origdoc/)
+## Agents Stragety
+The agents have an aggressive stragety. For the Ghost agent the class used is DefensiveReflexAgent. In this class, we -------- .
+The Pacman agent uses OffensiveReflexAgent. In this class, we always try to seek for the
+closest food. When eating we keep a counter. When the counter reaches 4, we go back and 
+dump the food back to base. If the pacman is killed while carrying 5 orbs, the Pacman goes
+back to the lace the orbs were dumped. Also, the pacman remembers the decisions that have been made and when deciding where to go, it tries to go to a better direction then it did last time, rather than making a random decision.
 
-### Short Version:
-
-run `python capture.py`
-
-make your agents by modifying `myTeam.py`
-
-run `python capture.py --red=myTeam` to test your team as Red
-
-run `python capture.py --help` to see other options
+### Decision to persue this stragety
+We decided to use this stragety because we wanted to make the Ghost a good keeper of the food while the pacman launch an offensive that took an small amount of risks. 
 
 
-### Longer Version:
+### How the work was divided
 
-The challenge is to design agents to play Capture-the-Flag in a Pacman-like
-arena.   
+Paris worked on the ghost agent while Osvaldo worked on the pacman. Paris helped Osvaldo in the development of the pacman.
 
-![Example Game](/origdoc/capture_the_flag.png)
+#### How well the agent works
 
-#### Rules
+**Ghost:** Ghost is capable of --
 
-**Layout:** The Pacman map is divided into two halves: blue (right) and red (left).  Red agents (which all have even indices) must defend the red food while trying to eat the blue food.  When on the red side, a red agent is a ghost.  When crossing into enemy territory, the agent becomes a Pacman.
+**Pacman:**  Pacman retrieves the food as expected. Pacman makes decisions based on a bank. The decisions are not as smart or dynamic as expected, there is still work to do in that aspect. Pacman "dances" around ghost if there is one always trying to block. It is a work in progress to make pacman flank the ghost.
 
-**Scoring:**  When a Pacman eats a food dot, the food is stored up inside of that Pacman and removed from the board.  When a Pacman returns to his side of the board, he "deposits" the food dots he is carrying, earning one point per food pellet delivered.  Red team scores are positive, while Blue team scores are negative.
+#### Leassons learned from the iteration
 
-**Eating Pacman:** When a Pacman is eaten by an opposing ghost, the Pacman returns to its starting position (as a ghost).  The food dots that the Pacman was carrying are deposited back onto the board.  No points are awarded for eating an opponent.
+**To Change:** Pacman's decision making algorith into something more dynamic and self-learning. The ghost --
 
-**Power capsules:** If Pacman eats a power capsule, agents on the opposing team become "scared" for the next 40 moves, or until they are eaten and respawn, whichever comes sooner.  Agents that are "scared" are susceptible while in the form of ghosts (i.e. while on their own team's side) to being eaten by Pacman.  Specifically, if Pacman collides with a "scared" ghost, Pacman is unaffected and the ghost respawns at its starting position (no longer in the "scared" state).
-
-**Observations:** Agents can only observe an opponent's configuration (position and direction) if they or their teammate is within 5 squares (Manhattan distance).  In addition, an agent always gets a noisy distance reading for each agent on the board, which can be used to approximately locate unobserved opponents.
-
-**Winning:** A game ends when one team eats all but two of the opponents' dots.  Games are also limited to 1200 agent moves (300 moves per each of the four agents).  If this move limit is reached, whichever team has eaten the most food wins. If the score is zero (i.e., tied) this is recorded as a tie game.
-
-**Computation Time:** Each agent has 1 second to return each action. Each move which does not return within one second will incur a warning.  After three warnings, or any single move taking more than 3 seconds, the game is forfeit.  There will be an initial start-up allowance of 15 seconds (use the `registerInitialState` method). If you agent times out or otherwise throws an exception, an error message will be present in the log files, which you can download from the results page (see below).
-
-#### Key data structures
-
-`CaptureAgent` (in `captureAgent.py`) is a useful base class for your agents.
-It has a variety of methods that can return useful information.  This includes a `distancer` field that contains a `distanceCalculator` object that can automatically calculate (and cache) the distances between every two points in the maze.
-
-`GameState` (in `capture.py`) has still more information that can be queried.  A current `GameState` object is passed into your agents' `chooseAction` methods.  Note that `GameState` objects can return the set of legal actions for an agent and can generate new `GameState` s that would result from any action.
-
-`game.py` has code that defines `Directions`, `Configurations`, `AgentState`, and a `Grid`, all of which might be handy and save extra work on your part.
-
-`util.py` has code that might prove helpful.  Of particular note is the `Counter` class which implements a dictionary, but where unused keys default to mapping to 0 (instead of undefined).  A `Counter` mapping positions (integer pairs) to a real value can be used with `CaptureAgent.displayDistributionsOverPositions` to color the cells on the map with debugging information.
-
-`myTeam.py` has skeleton code for generating a team of agents.  Its format should not be changed and needs to have the function `createTeam` as specified.  You should copy this file, change its name, and use it to build your own team.
+**To Keep:** The way the food is retrieved and brought back. The food dumped to go back and get it back if it is higher than a set limit. Ghost --
